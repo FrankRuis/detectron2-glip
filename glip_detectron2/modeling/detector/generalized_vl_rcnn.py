@@ -2,14 +2,12 @@ import random
 import yaml
 import torch
 
-from copy import deepcopy
 from torch import nn
-from detectron2.layers import ShapeSpec
 from detectron2.modeling import META_ARCH_REGISTRY
 from detectron2.modeling.backbone import build_backbone
 from detectron2.modeling.roi_heads import build_roi_heads
 from detectron2.modeling.proposal_generator.build import build_proposal_generator
-from detectron2.structures import ImageList, Boxes
+from detectron2.structures import ImageList
 from transformers import AutoTokenizer
 
 from ..language_backbone import build_language_backbone
@@ -17,14 +15,6 @@ from ..language_backbone import build_language_backbone
 
 @META_ARCH_REGISTRY.register()
 class GeneralizedVLRCNN(nn.Module):
-    """
-    Main class for Generalized R-CNN. Currently supports boxes and masks.
-    It consists of three main parts:
-    - backbone
-    - rpn
-    - heads: takes the features + the proposals from the RPN and computes
-        detections / masks from it.
-    """
 
     def __init__(self, cfg):
         super(GeneralizedVLRCNN, self).__init__()

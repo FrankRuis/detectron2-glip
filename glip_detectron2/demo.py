@@ -218,7 +218,7 @@ class GLIPDemo(object):
                 tokens_positive += self.run_ner(_caption)
             print(tokens_positive)
         # process positive map
-        positive_map = create_positive_map(tokenized, tokens_positive)
+        positive_map = create_positive_map(tokenized, tokens_positive, max_len=self.cfg.LANGUAGE_BACKBONE.MAX_QUERY_LEN)
 
         if self.cfg.MODEL.PROPOSAL_GENERATOR == "VLDyHeadModule":
             plus = 1
@@ -430,9 +430,9 @@ def create_positive_map_label_to_token_from_positive_map(positive_map, plus=0):
     return positive_map_label_to_token
 
 
-def create_positive_map(tokenized, tokens_positive):
+def create_positive_map(tokenized, tokens_positive, max_len=256):
     """construct a map such that positive_map[i,j] = True iff box i is associated to token j"""
-    positive_map = torch.zeros((len(tokens_positive), 256), dtype=torch.float)
+    positive_map = torch.zeros((len(tokens_positive), max_len), dtype=torch.float)
 
     for j, tok_list in enumerate(tokens_positive):
         for (beg, end) in tok_list:

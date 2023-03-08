@@ -42,7 +42,7 @@ class GroundingMapper(DatasetMapper):
     @classmethod
     def from_config(cls, cfg, is_train: bool = True):
         ret = super().from_config(cfg, is_train)
-        if cfg.INPUT.FORMAT is not '':
+        if cfg.INPUT.FORMAT != '':
             input_format = cfg.INPUT.FORMAT
         elif cfg.INPUT.TO_BGR255:
             input_format = 'bgr255'
@@ -151,8 +151,10 @@ class GroundingMapper(DatasetMapper):
         if self.return_tokens and self.tokenizer is not None and "instances" in dataset_dict:
             tokenized = self.tokenizer(dataset_dict["caption"], return_tensors="pt", max_length=self.max_query_len,
                                        truncation=True)
-            dataset_dict['positive_map'] = create_positive_map(tokenized, dataset_dict["instances"].tokens_positive)
-            dataset_dict['positive_map_od'] = create_positive_map_for_od_labels(tokenized, self.label_to_positions)
+            dataset_dict['positive_map'] = create_positive_map(tokenized, dataset_dict["instances"].tokens_positive,
+                                                               max_len=self.max_query_len)
+            dataset_dict['positive_map_od'] = create_positive_map_for_od_labels(tokenized, self.label_to_positions,
+                                                                                max_len=self.max_query_len)
 
 
 class GroundingMapDataset(MapDataset):
@@ -173,7 +175,7 @@ class GroundingMapDataset(MapDataset):
         self.collate_fn = BatchCollator(size_divisibility)
 
 
-def create_positive_map_for_od_labels(tokenized, label_to_positions):
+def create_positive_map_for_od_labels(tokenized, label_to_positions, max_len=256):
     """construct a map such that positive_map[i] = j, where j is the object detection label of the token i"""
     """
     {3: [1: 5)}
@@ -181,7 +183,7 @@ def create_positive_map_for_od_labels(tokenized, label_to_positions):
     the woman in the garden
     -1 -1 -1 -1 -1
     """
-    positive_map = torch.ones(256, dtype=torch.float) * -1  # -1 means no match
+    positive_map = torch.ones(max_len, dtype=torch.float) * -1  # -1 means no match
     keys = list(label_to_positions.keys())
     for j, key in enumerate(keys):
         tok_list = label_to_positions[key]
@@ -210,9 +212,9 @@ def create_positive_map_for_od_labels(tokenized, label_to_positions):
     return positive_map
 
 
-def create_positive_map(tokenized, tokens_positive):
+def create_positive_map(tokenized, tokens_positive, max_len=256):
     """construct a map such that positive_map[i,j] = True iff box i is associated to token j"""
-    positive_map = torch.zeros((len(tokens_positive), 256), dtype=torch.float)
+    positive_map = torch.zeros((len(tokens_positive), max_len), dtype=torch.float)
 
     for j, tok_list in enumerate(tokens_positive):
         for (beg, end) in tok_list:

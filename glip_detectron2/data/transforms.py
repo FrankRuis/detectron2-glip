@@ -30,7 +30,7 @@ def build_transforms(cfg, is_train=True):
         flip_horizontal_prob = 0.0
 
     fix_res = cfg.INPUT.FIX_RES
-    if cfg.INPUT.FORMAT is not '':
+    if cfg.INPUT.FORMAT != '':
         input_format = cfg.INPUT.FORMAT
     elif cfg.INPUT.TO_BGR255:
         input_format = 'bgr255'

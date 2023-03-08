@@ -1,4 +1,21 @@
+import logging
+
 import torch
+from detectron2.modeling import build_model
+
+
+def init_glip_model(cfg):
+    model = build_model(cfg)
+    state_dict = load_old_glip_checkpoint(cfg.MODEL.WEIGHTS)
+    result = model.load_state_dict(state_dict, strict=False)
+    if result.missing_keys:
+        logging.warning('Missing keys in state dict: {}\n'
+                        'This may be expected (e.g. missing RPN logits when loading a dot product token model)'
+                        .format(result.missing_keys))
+    else:
+        logging.info('Loaded all weights from checkpoint: {}'.format(cfg.MODEL.WEIGHTS))
+
+    return model
 
 
 def load_old_glip_checkpoint(weights_path, map_location='cpu'):
