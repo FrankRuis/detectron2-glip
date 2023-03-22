@@ -1,16 +1,13 @@
 import copy
 import logging
 import functools
-import random
 
 import torch
 import numpy as np
 from detectron2.config import configurable
-from detectron2.structures import Instances
 from detectron2.data import MapDataset, DatasetMapper, get_detection_dataset_dicts, MetadataCatalog, \
     detection_utils as utils, transforms as T
 
-from models.yolov8.ultralytics.yolo.utils.instance import Instances as YInstances
 from .grounding import convert_od_to_grounding_simple
 from .collate_batch import BatchCollator
 from .transforms import Normalize
@@ -121,12 +118,11 @@ class GroundingMapper(DatasetMapper):
             self.tokenizer = tokenizer
         assert metadata is not None, "Metadata must be provided for `GroundingMapper`"
         dataset_dict = self.modified_call(dataset_dict)
-        if not hasattr(self, 'caption'):
-            self.init_prompt(metadata)
+        # if not hasattr(self, 'caption'):
+        self.init_prompt(metadata)
         dataset_dict["caption"] = self.caption
         self.update_instances(dataset_dict)
-        if not self.is_train:
-            dataset_dict['image'] = self.normalize.apply_image(dataset_dict['image'].float())
+        dataset_dict['image'] = self.normalize.apply_image(dataset_dict['image'].float())
 
         return dataset_dict
 
@@ -153,8 +149,9 @@ class GroundingMapper(DatasetMapper):
                                        truncation=True)
             dataset_dict['positive_map'] = create_positive_map(tokenized, dataset_dict["instances"].tokens_positive,
                                                                max_len=self.max_query_len)
-            dataset_dict['positive_map_od'] = create_positive_map_for_od_labels(tokenized, self.label_to_positions,
-                                                                                max_len=self.max_query_len)
+            # positive_map_od was only used for shallow contrastive loss
+            # dataset_dict['positive_map_od'] = create_positive_map_for_od_labels(tokenized, self.label_to_positions,
+            #                                                                     max_len=self.max_query_len)
 
 
 class GroundingMapDataset(MapDataset):

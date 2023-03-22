@@ -1,5 +1,6 @@
 import re
 import yaml
+import logging
 from collections import defaultdict
 
 
@@ -36,36 +37,31 @@ def create_queries_and_maps_from_dataset(dataset, cfg, tokenizer=None):
 
         all_queries.append(query_i)
         all_positive_map_label_to_token.append(positive_map_label_to_token_i)
-    print("All queries", all_queries)
+    logging.info("All queries: " + str(all_queries))
     return all_queries, all_positive_map_label_to_token
 
 
 def create_queries_and_maps(labels, label_list, additional_labels=None, cfg=None, tokenizer=None):
     # reimplemented this method to allow supplying a custom tokenizer
     # Clean label list
-    original_label_list = label_list.copy()
     label_list = [clean_name(i) for i in label_list]
     # Form the query and get the mapping
     tokens_positive = []
     objects_query = ""
 
     # sep between tokens, follow training
-    token_separation = cfg.DATASETS.TOKEN_SEPARATION
+    token_separation = cfg.DATASETS.TOKEN_SEPARATION if cfg is not None else ". "
 
-    caption_prompt = cfg.DATASETS.CAPTION_PROMPT
+    caption_prompt = cfg.DATASETS.CAPTION_PROMPT if cfg is not None else None
     if caption_prompt is not None and isinstance(caption_prompt, str):
         caption_prompt = load_from_yaml_file(caption_prompt)
-    use_caption_prompt = cfg.DATASETS.USE_CAPTION_PROMPT and caption_prompt is not None
+    use_caption_prompt = caption_prompt is not None and cfg.DATASETS.USE_CAPTION_PROMPT
     for _index, label in enumerate(label_list):
         if use_caption_prompt:
             objects_query += caption_prompt[_index]["prefix"]
 
         start_i = len(objects_query)
-
-        if use_caption_prompt:
-            objects_query += caption_prompt[_index]["name"]
-        else:
-            objects_query += label
+        objects_query += label
 
         end_i = len(objects_query)
         tokens_positive.append([(start_i, end_i)])  # Every label has a [(start, end)]
@@ -104,13 +100,13 @@ def create_queries_and_maps(labels, label_list, additional_labels=None, cfg=None
         else:
             raise NotImplementedError
     else:
-        if cfg.MODEL.LANGUAGE_BACKBONE.TOKENIZER_TYPE == "clip":
+        if cfg is None or cfg.MODEL.LANGUAGE_BACKBONE.TOKENIZER_TYPE == "bert-base-uncased":
+            tokenized = tokenizer(objects_query, return_tensors="pt")
+        elif cfg.MODEL.LANGUAGE_BACKBONE.TOKENIZER_TYPE == "clip":
             tokenized = tokenizer(objects_query,
                                   max_length=cfg.MODEL.LANGUAGE_BACKBONE.MAX_QUERY_LEN,
                                   truncation=True,
                                   return_tensors="pt")
-        elif cfg.MODEL.LANGUAGE_BACKBONE.TOKENIZER_TYPE == "bert-base-uncased":
-            tokenized = tokenizer(objects_query, return_tensors="pt")
         else:
             raise NotImplementedError
 
@@ -126,7 +122,6 @@ def create_positive_dict(tokenized, tokens_positive, labels):
 
     # Additionally, have positive_map_label_to_tokens
     positive_map_label_to_token = defaultdict(list)
-
     for j, tok_list in enumerate(tokens_positive):
         for (beg, end) in tok_list:
             beg_pos = tokenized.char_to_token(beg)
@@ -150,10 +145,9 @@ def create_positive_dict(tokenized, tokens_positive, labels):
 
             assert beg_pos is not None and end_pos is not None
             for i in range(beg_pos, end_pos + 1):
-                positive_map[i] = labels[j]  # because the labels starts from 1
+                positive_map[i] = labels[j]
                 positive_map_label_to_token[labels[j]].append(i)
-            # positive_map[j, beg_pos : end_pos + 1].fill_(1)
-    return positive_map, positive_map_label_to_token  # / (positive_map.sum(-1)[:, None] + 1e-6)
+    return positive_map, positive_map_label_to_token
 
 
 def load_from_yaml_file(yaml_file):
@@ -163,8 +157,8 @@ def load_from_yaml_file(yaml_file):
 
 def clean_name(name):
     name = re.sub(r"\(.*\)", "", name)
-    name = re.sub(r"_", " ", name)
-    name = re.sub(r"  ", " ", name)
+    # name = re.sub(r"_", " ", name)
+    name = re.sub(r" {2}", " ", name)
     return name
 
 

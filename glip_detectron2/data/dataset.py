@@ -1,9 +1,12 @@
-from transformers import AutoTokenizer
+import os
+import torch
+import logging
 
+from transformers import AutoTokenizer
 from detectron2.data.datasets import register_coco_instances
 from detectron2.data import MetadataCatalog, DatasetCatalog
 
-from glip_detectron2.data import GroundingMapper, GroundingMapDataset
+from .modulated_coco import GroundingMapper, GroundingMapDataset
 
 
 def from_config(cfg, is_train=True, tokenizer=None):
@@ -17,7 +20,9 @@ def from_config(cfg, is_train=True, tokenizer=None):
             if f'{attrs.name}_{task}' in DatasetCatalog:
                 continue
             if attrs.type == "COCO":
-                register_coco_instances(f'{attrs.name}_{task}', {}, attrs.ann_file, attrs.img_dir)
+                ann_file = os.path.join(cfg.DATASETS.DATA_ROOT, attrs.ann_file)
+                img_dir = os.path.join(cfg.DATASETS.DATA_ROOT, attrs.img_dir)
+                register_coco_instances(f'{attrs.name}_{task}', {}, ann_file, img_dir)
             else:
                 raise NotImplementedError(f"Dataset type {attrs.type} not implemented")
 
@@ -37,7 +42,31 @@ def from_config(cfg, is_train=True, tokenizer=None):
         if cfg.DATASETS.OVERRIDE_CLASS_NAMES and cfg.DATASETS.USE_OVERRIDE_CLASS_NAMES:
             if dataset_name in MetadataCatalog:
                 meta = MetadataCatalog.get(dataset_name)
-                meta.override_classes = cfg.DATASETS.OVERRIDE_CLASS_NAMES
+                if isinstance(cfg.DATASETS.OVERRIDE_CLASS_NAMES[0], dict):
+                    meta.override_classes = [e['name'] for e in sorted(cfg.DATASETS.OVERRIDE_CLASS_NAMES,
+                                                                       key=lambda e: e['id'])]
+                    # override_classes = [e['name'] for e in sorted(cfg.DATASETS.OVERRIDE_CLASS_NAMES,
+                    #                                                    key=lambda e: e['id'])]
+                else:
+                    meta.override_classes = cfg.DATASETS.OVERRIDE_CLASS_NAMES
+                    # override_classes = cfg.DATASETS.OVERRIDE_CLASS_NAMES
+
+                # all_embeddings = torch.load('/project/work_dirs/odinw_inversion/all_embeddings.pt')
+                # all_toks = []
+                # for k in all_embeddings:
+                #     if k.startswith('string_to_param_dict'):
+                #         name = k.replace('string_to_param_dict.', '')
+                #         if '_' in name and name[-2] != '0':
+                #             all_toks[-1] += name
+                #         else:
+                #             all_toks.append(name)
+                # meta.override_classes = override_classes + list(set(all_toks) - set(override_classes))
+                # cfg.defrost()
+                # for key in cfg.MODEL.keys():
+                #     if hasattr(cfg.MODEL[key], 'get') and 'NUM_CLASSES' in cfg.MODEL[key]:
+                #         cfg.MODEL[key].num_classes = len(meta.override_classes)
+                # cfg.freeze()
+                # logging.info(f"Overriding class names with all dataset classes: {meta.override_classes}")
             else:
                 raise ValueError(f"Dataset {dataset_name} not found in MetadataCatalog")
 

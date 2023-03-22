@@ -250,8 +250,7 @@ class BertEncoderLayer(BertPreTrainedModel):
         # from transformers.models.bert.modeling_bert import BertAttention, BertIntermediate, BertOutput
         from glip_detectron2.modeling.rpn.modeling_bert import BertAttention, BertIntermediate, BertOutput
 
-        # TODO check if clamping is needed (see classes above)
-        self.attention = BertAttention(config)  # , clamp_min_for_underflow, clamp_max_for_overflow)
+        self.attention = BertAttention(config, clamp_min_for_underflow, clamp_max_for_overflow)
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
@@ -468,7 +467,7 @@ class VLDyHead(torch.nn.Module):
         else:
             raise NotImplementedError
 
-        num_classes = cfg.MODEL.DYHEAD.NUM_CLASSES
+        num_classes = cfg.MODEL.DYHEAD.NUM_CLASSES + 50
         num_tokens = cfg.MODEL.LANGUAGE_BACKBONE.MAX_QUERY_LEN
         num_anchors = len(cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS) * cfg.MODEL.ANCHOR_GENERATOR.SCALES_PER_OCTAVE
         in_channels = cfg.MODEL.BACKBONE.OUT_CHANNELS
@@ -609,13 +608,16 @@ class VLDyHead(torch.nn.Module):
             # norm
             embedding = F.normalize(embedding, p=2, dim=-1)
             dot_product_proj_tokens = self.dot_product_projection_text(embedding / 2.0)
-
             dot_product_proj_tokens_bias = torch.matmul(embedding, self.bias_lang) + self.bias0
+            # torch.save(dot_product_proj_tokens, '/project/tmp/tokens_last.pt')
+            # torch.save(dot_product_proj_tokens_bias, '/project/tmp/bias_last.pt')
+            # raise ValueError('I want to break freeeeee')
 
         fused_visual_features = None
         if self.cfg.MODEL.RPN.RETURN_FUSED_FEATURES:
             fused_visual_features = []
 
+        # all_projection_features = []
         # use the feature from FPN
         for l, feature in enumerate(x):
             logits.append(self.cls_logits(dyhead_tower["visual"][l]))  # TODO this is only used for getting the channel shape later
@@ -640,6 +642,7 @@ class VLDyHead(torch.nn.Module):
 
                 A = dot_product_proj_queries.shape[1]
                 bias = dot_product_proj_tokens_bias.unsqueeze(1).repeat(1, A, 1)
+                # all_projection_features.append(dot_product_proj_queries)
 
                 dot_product_logit = (torch.matmul(dot_product_proj_queries, dot_product_proj_tokens.transpose(-1, -2))
                                      / self.log_scale.exp()) + bias
@@ -648,6 +651,7 @@ class VLDyHead(torch.nn.Module):
                     dot_product_logit = torch.clamp(dot_product_logit, min=-50000)
                 dot_product_logits.append(dot_product_logit)
 
+        # torch.save(all_projection_features, "/project/tmp/all_projection_features.pt")
         return logits, bbox_reg, centerness, t_logits, dot_product_logits, fused_visual_features
 
 

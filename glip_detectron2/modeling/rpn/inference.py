@@ -3,6 +3,7 @@ from ..utils import permute_and_flatten
 
 from detectron2.structures import Boxes, Instances, BoxMode
 from detectron2.layers import batched_nms
+from glip_detectron2.layers.soft_nms import batched_soft_nms
 
 
 class ATSSPostProcessor(torch.nn.Module):
@@ -18,7 +19,8 @@ class ATSSPostProcessor(torch.nn.Module):
             bbox_aug_enabled=False,
             bbox_aug_vote=False,
             score_agg='MEAN',
-            mdetr_style_aggregate_class_num=-1
+            mdetr_style_aggregate_class_num=-1,
+            soft_nms=False
     ):
         super(ATSSPostProcessor, self).__init__()
         self.pre_nms_thresh = pre_nms_thresh
@@ -32,6 +34,7 @@ class ATSSPostProcessor(torch.nn.Module):
         self.bbox_aug_vote = bbox_aug_vote
         self.score_agg = score_agg
         self.mdetr_style_aggregate_class_num = mdetr_style_aggregate_class_num
+        self.soft_nms = soft_nms
 
     def forward_for_single_feature_map(self, box_regression, centerness, anchors,
                                        box_cls=None,
@@ -163,7 +166,15 @@ class ATSSPostProcessor(torch.nn.Module):
         results = []
         for i in range(num_images):
             # multiclass nms
-            result = instances[i][batched_nms(instances[i].pred_boxes.tensor, instances[i].scores, instances[i].pred_classes, self.nms_thresh)]
+            if self.soft_nms:
+                idxs, scores = batched_soft_nms(instances[i].pred_boxes.tensor, instances[i].scores, instances[i].pred_classes,
+                                        self.nms_thresh)
+            else:
+                idxs = batched_nms(instances[i].pred_boxes.tensor, instances[i].scores, instances[i].pred_classes,
+                                        self.nms_thresh)
+                scores = instances[i].scores[idxs]
+            result = instances[i][idxs]
+            result.scores = scores
             number_of_detections = len(result)
 
             # Limit to max_per_image detections **over all classes**
@@ -258,7 +269,8 @@ def make_atss_postprocessor(config, box_coder, is_train=False):
         box_coder=box_coder,
         bbox_aug_enabled=config.TEST.USE_MULTISCALE,
         score_agg=score_agg,
-        mdetr_style_aggregate_class_num=config.TEST.MDETR_STYLE_AGGREGATE_CLASS_NUM
+        mdetr_style_aggregate_class_num=config.TEST.MDETR_STYLE_AGGREGATE_CLASS_NUM,
+        soft_nms=config.MODEL.ATSS.SOFT_NMS
     )
 
     return box_selector

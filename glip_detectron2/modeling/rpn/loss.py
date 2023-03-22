@@ -3,9 +3,8 @@ import torch.nn.functional as F
 
 from torch import nn
 from fvcore.nn import sigmoid_focal_loss_jit
-from detectron2.structures import Boxes, pairwise_iou, BoxMode
-from detectron2.utils.comm import get_world_size, dist
-from transformers import AutoTokenizer
+from detectron2.structures import Boxes, pairwise_iou
+from detectron2.utils.comm import get_world_size
 
 from ..utils import cat, concat_box_prediction_layers
 from glip_detectron2.utils.amp import custom_fwd
@@ -98,12 +97,6 @@ class ATSSLossComputation(torch.nn.Module):
                                                          cfg.MODEL.DYHEAD.FUSE_CONFIG.TOKEN_GAMMA)
 
         self.lang = cfg.MODEL.LANGUAGE_BACKBONE.MODEL_TYPE
-
-        # self.tokenizer = AutoTokenizer.from_pretrained(self.lang)
-        if self.cfg.MODEL.LANGUAGE_BACKBONE.TOKENIZER_TYPE == "clip":
-            raise NotImplementedError
-        else:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.lang)
 
         # if use shallow contrastive loss
         if self.cfg.MODEL.DYHEAD.FUSE_CONFIG.USE_SHALLOW_CONTRASTIVE_LOSS \

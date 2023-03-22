@@ -16,10 +16,9 @@ _C.MODEL.PIXEL_MEAN = [102.9801, 115.9465, 122.7717]
 # TODO move augment to input like detectron2? I actually prefer GLIP's way
 # _C.INPUT.MULT_MIN_SIZE_TRAIN = ()
 #
-_C.INPUT.CROP.ENABLED = False
-_C.INPUT.CROP.PROB = 0.0
+_C.INPUT.CROP.ENABLED = True
 _C.INPUT.CROP.MIN_IOUS = (0.1, 0.3, 0.5, 0.7, 0.9)
-_C.INPUT.CROP.SIZE = [0.4, 1.0]
+_C.INPUT.CROP.SIZE = [0.7, 1.0]
 _C.INPUT.TO_BGR255 = True
 _C.INPUT.FIX_RES = False
 _C.INPUT.FORMAT = ''
@@ -45,7 +44,9 @@ _C.AUGMENT.CROP_MIN_SIZE = 0.3
 
 # -----------------------------------------------------------------------------
 # Dataset
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+_C.DATASETS.DATA_ROOT = ''
+
 # Use is_crowd label
 _C.DATASETS.REPEAT_DATA = 1
 _C.DATASETS.CLASS_AGNOSTIC = False
@@ -328,6 +329,7 @@ _C.MODEL.ATSS.NUM_CLASSES = 81  # the number of classes including background
 _C.MODEL.ATSS.PRIOR_PROB = 0.01
 _C.MODEL.ATSS.INFERENCE_TH = 0.05
 _C.MODEL.ATSS.NMS_TH = 0.6
+_C.MODEL.ATSS.SOFT_NMS = False
 _C.MODEL.ATSS.PRE_NMS_TOP_N = 1000
 
 # the number of convolutions used in the cls and bbox tower

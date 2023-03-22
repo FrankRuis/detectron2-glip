@@ -43,7 +43,7 @@ def make_optimizer(cfg, model):
 
         if 'norm' in key or 'Norm' in key:
             weight_decay *= cfg.SOLVER.WEIGHT_DECAY_NORM_FACTOR
-            print("Setting weight decay of {} to {}".format(key, weight_decay))
+            # print("Setting weight decay of {} to {}".format(key, weight_decay))
 
         params += [{"params": [value], "lr": lr, "weight_decay": weight_decay}]
 

@@ -124,14 +124,14 @@ class GeneralizedVLRCNN(nn.Module):
         """
         Arguments:
             images (list[Tensor] or ImageList): images to be processed
-            targets (list[BoxList]): ground-truth boxes present in the image (optional)
+            targets (list[Instances]): ground-truth boxes and labels present in the image (optional)
 
             mask_black_list: batch x 256, indicates whether a certain token is maskable or not
 
         Returns:
             result (list[BoxList] or dict[Tensor]): the output from the model.
                 During training, it returns a dict[Tensor] which contains the losses.
-                During testing, it returns list[BoxList] contains additional fields
+                During testing, it returns list[Instances] contains additional fields
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
 
         """

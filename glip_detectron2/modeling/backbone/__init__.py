@@ -6,7 +6,6 @@ from torch import nn
 from detectron2.modeling import Backbone
 from detectron2.modeling import BACKBONE_REGISTRY, SwinTransformer
 from detectron2.modeling.backbone.fpn import FPN, LastLevelP6P7
-from glip_detectron2.modeling.backbone import fpn as fpn_module
 from glip_detectron2.layers import DropBlock2D, DyHead
 
 
