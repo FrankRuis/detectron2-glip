@@ -28,7 +28,7 @@ def clean_name(name):
     return name
 
 
-def convert_od_to_grounding_simple(ind_to_class, shuffle_caption=False, token_separation=" ", caption_prompt=None,
+def convert_od_to_grounding_simple(ind_to_class, shuffle_caption=False, token_separation=" ", prompt_template=None,
                                    negatives=None, p_negatives=None, sample_negatives=50):
     """
     Convert object detection data into grounding data format, on the fly.
@@ -38,20 +38,20 @@ def convert_od_to_grounding_simple(ind_to_class, shuffle_caption=False, token_se
         label_to_positions = {}
         label_list = negative_label_list + positive_label_list
         if shuffle:
-            assert (caption_prompt is None), "Should not specify caption_prompt when shuffle is enabled!!"
+            assert (prompt_template is None), "Should not specify prompt_template when shuffle is enabled!!"
             random.shuffle(label_list)
 
         pheso_caption = ""
         for index, label in enumerate(label_list):
-            if caption_prompt is not None:
-                pheso_caption += caption_prompt[index]['prefix']
+            if prompt_template is not None:
+                pheso_caption += prompt_template[index]
+                start_index = pheso_caption.index('{name}')
+                pheso_caption = pheso_caption.format(name=clean_name(ind_to_class[label] if label in ind_to_class else label))
+            else:
+                start_index = len(pheso_caption)
+                pheso_caption += clean_name(ind_to_class[label] if label in ind_to_class else label)
 
-            start_index = len(pheso_caption)
-            pheso_caption += clean_name(ind_to_class[label] if label in ind_to_class else label)  # NOTE: slight change...
-            end_index = len(pheso_caption)
-
-            if caption_prompt is not None:
-                pheso_caption += caption_prompt[index]['suffix']
+            end_index = start_index + len(clean_name(ind_to_class[label] if label in ind_to_class else label))
 
             # e.g.: pheso_caption = "cat dog", where cat is label 4, and dog is label 17
             # label_to_positions: {4: (0, 3), 17: (4, 7)}

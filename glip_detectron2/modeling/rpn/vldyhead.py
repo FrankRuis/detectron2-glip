@@ -705,7 +705,7 @@ class VLDyHeadModule(torch.nn.Module):
             embedding = self.tunable_linear.weight[:embedding.size(1), :].unsqueeze(0) + embedding
             language_dict_features['embedded'] = embedding
             language_dict_features['hidden'] = self.tunable_linear.weight[:embedding.size(1), :].unsqueeze(0) + \
-                                               language_dict_features['hidden']
+                                                   language_dict_features['hidden']
 
         box_cls, box_regression, centerness, token_logits, dot_product_logits, fused_visual_features = self.head(
             features,

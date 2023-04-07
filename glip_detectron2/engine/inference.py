@@ -52,22 +52,27 @@ def create_queries_and_maps(labels, label_list, additional_labels=None, cfg=None
     # sep between tokens, follow training
     token_separation = cfg.DATASETS.TOKEN_SEPARATION if cfg is not None else ". "
 
-    caption_prompt = cfg.DATASETS.CAPTION_PROMPT if cfg is not None else None
-    if caption_prompt is not None and isinstance(caption_prompt, str):
-        caption_prompt = load_from_yaml_file(caption_prompt)
-    use_caption_prompt = caption_prompt is not None and cfg.DATASETS.USE_CAPTION_PROMPT
+    prompt_template = None
+    if cfg is not None and cfg.DATASETS.OVERRIDE_CLASS_NAMES \
+            and 'prompt_template' in cfg.DATASETS.OVERRIDE_CLASS_NAMES[0]:
+        prompt_template = []
+        for cat in sorted(cfg.DATASETS.OVERRIDE_CLASS_NAMES, key=lambda x: x['id']):
+            prompt_template.append(cat.get('prompt_template_val', cat['prompt_template']))
+
+    # if prompt_template is not None and isinstance(prompt_template, str):
+    #     prompt_template = load_from_yaml_file(prompt_template)
+    use_prompt_template = prompt_template is not None and cfg.DATASETS.USE_PROMPT_TEMPLATE
     for _index, label in enumerate(label_list):
-        if use_caption_prompt:
-            objects_query += caption_prompt[_index]["prefix"]
+        if use_prompt_template:
+            objects_query += prompt_template[_index]
+            start_i = objects_query.index('{name}')
+            objects_query = objects_query.format(name=label)
+        else:
+            start_i = len(objects_query)
+            objects_query += label
 
-        start_i = len(objects_query)
-        objects_query += label
-
-        end_i = len(objects_query)
+        end_i = start_i + len(label)
         tokens_positive.append([(start_i, end_i)])  # Every label has a [(start, end)]
-
-        if use_caption_prompt:
-            objects_query += caption_prompt[_index]["suffix"]
 
         if _index != len(label_list) - 1:
             objects_query += token_separation

@@ -17,7 +17,7 @@ class GroundingMapper(DatasetMapper):
     @configurable
     def __init__(self, is_train, *, augmentations, image_format, use_instance_mask=False, use_keypoint=False,
                  instance_mask_format="polygon", keypoint_hflip_indices=None, precomputed_proposal_topk=None,
-                 recompute_boxes=False, use_caption_prompt=False, caption_prompt=None, shuffle_caption=False,
+                 recompute_boxes=False, use_prompt_template=False, prompt_template=None, shuffle_caption=False,
                  return_tokens=True, tokenizer=None, token_separation=' ', max_query_len=256,
                  random_sample_negative=-1, normalize=None):
         super().__init__(is_train, augmentations=augmentations, image_format=image_format,
@@ -26,8 +26,8 @@ class GroundingMapper(DatasetMapper):
                                         keypoint_hflip_indices=keypoint_hflip_indices,
                                         precomputed_proposal_topk=precomputed_proposal_topk,
                                         recompute_boxes=recompute_boxes)
-        self.use_caption_prompt = use_caption_prompt
-        self.caption_prompt = caption_prompt
+        self.use_prompt_template = use_prompt_template
+        self.prompt_template = prompt_template
         self.shuffle_caption = shuffle_caption
         self.return_tokens = return_tokens
         self.tokenizer = tokenizer
@@ -47,7 +47,7 @@ class GroundingMapper(DatasetMapper):
             input_format = 'rgb'
         ret = {
             **ret,
-            "use_caption_prompt": cfg.DATASETS.USE_CAPTION_PROMPT,
+            "use_prompt_template": cfg.DATASETS.USE_PROMPT_TEMPLATE,
             "max_query_len": cfg.MODEL.LANGUAGE_BACKBONE.MAX_QUERY_LEN,
             "random_sample_negative": cfg.DATASETS.RANDOM_SAMPLE_NEG,
             "shuffle_caption": cfg.DATASETS.SHUFFLE_CAPTION,
@@ -58,8 +58,12 @@ class GroundingMapper(DatasetMapper):
             # Normalize(mean=cfg.MODEL.PIXEL_MEAN, std=cfg.MODEL.PIXEL_STD, format=input_format)
         ]
 
-        if cfg.DATASETS.USE_CAPTION_PROMPT:
-            ret["caption_prompt"] = cfg.DATASETS.CAPTION_PROMPT
+        if cfg.DATASETS.USE_PROMPT_TEMPLATE and cfg.DATASETS.OVERRIDE_CLASS_NAMES \
+                and 'prompt_template' in cfg.DATASETS.OVERRIDE_CLASS_NAMES[0]:
+            prompt_template = []
+            for cat in sorted(cfg.DATASETS.OVERRIDE_CLASS_NAMES, key=lambda x: x['id']):
+                prompt_template.append(cat['prompt_template'] if is_train else cat.get('prompt_template_val', cat['prompt_template']))
+            ret["prompt_template"] = prompt_template
 
         return ret
 
@@ -136,7 +140,7 @@ class GroundingMapper(DatasetMapper):
             ind_to_class=ind_to_class,
             shuffle_caption=self.shuffle_caption,
             token_separation=self.token_separation,
-            caption_prompt=self.caption_prompt,
+            prompt_template=self.prompt_template,
         )
 
     def update_instances(self, dataset_dict):
@@ -172,47 +176,9 @@ class GroundingMapDataset(MapDataset):
         self.collate_fn = BatchCollator(size_divisibility)
 
 
-def create_positive_map_for_od_labels(tokenized, label_to_positions, max_len=256):
-    """construct a map such that positive_map[i] = j, where j is the object detection label of the token i"""
-    """
-    {3: [1: 5)}
-    256 : -1 3 3 3 3 -1 .. 8 8 ..
-    the woman in the garden
-    -1 -1 -1 -1 -1
-    """
-    positive_map = torch.ones(max_len, dtype=torch.float) * -1  # -1 means no match
-    keys = list(label_to_positions.keys())
-    for j, key in enumerate(keys):
-        tok_list = label_to_positions[key]
-        # one label only mapps to one location
-        beg, end = tok_list
-        beg_pos = tokenized.char_to_token(beg)
-        end_pos = tokenized.char_to_token(end - 1)
-        if beg_pos is None:
-            try:
-                beg_pos = tokenized.char_to_token(beg + 1)
-                if beg_pos is None:
-                    beg_pos = tokenized.char_to_token(beg + 2)
-            except:
-                beg_pos = None
-        if end_pos is None:
-            try:
-                end_pos = tokenized.char_to_token(end - 2)
-                if end_pos is None:
-                    end_pos = tokenized.char_to_token(end - 3)
-            except:
-                end_pos = None
-        if beg_pos is None or end_pos is None:
-            continue
-        assert beg_pos is not None and end_pos is not None
-        positive_map[beg_pos: end_pos + 1].fill_(key)
-    return positive_map
-
-
 def create_positive_map(tokenized, tokens_positive, max_len=256):
     """construct a map such that positive_map[i,j] = True iff box i is associated to token j"""
     positive_map = torch.zeros((len(tokens_positive), max_len), dtype=torch.float)
-
     for j, tok_list in enumerate(tokens_positive):
         for (beg, end) in tok_list:
             beg_pos = tokenized.char_to_token(beg)

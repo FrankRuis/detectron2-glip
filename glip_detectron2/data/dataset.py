@@ -44,29 +44,10 @@ def from_config(cfg, is_train=True, tokenizer=None):
                 meta = MetadataCatalog.get(dataset_name)
                 if isinstance(cfg.DATASETS.OVERRIDE_CLASS_NAMES[0], dict):
                     meta.override_classes = [e['name'] for e in sorted(cfg.DATASETS.OVERRIDE_CLASS_NAMES,
-                                                                       key=lambda e: e['id'])]
-                    # override_classes = [e['name'] for e in sorted(cfg.DATASETS.OVERRIDE_CLASS_NAMES,
-                    #                                                    key=lambda e: e['id'])]
+                                                                       key=lambda x: x['id'])]
                 else:
                     meta.override_classes = cfg.DATASETS.OVERRIDE_CLASS_NAMES
-                    # override_classes = cfg.DATASETS.OVERRIDE_CLASS_NAMES
-
-                # all_embeddings = torch.load('/project/work_dirs/odinw_inversion/all_embeddings.pt')
-                # all_toks = []
-                # for k in all_embeddings:
-                #     if k.startswith('string_to_param_dict'):
-                #         name = k.replace('string_to_param_dict.', '')
-                #         if '_' in name and name[-2] != '0':
-                #             all_toks[-1] += name
-                #         else:
-                #             all_toks.append(name)
-                # meta.override_classes = override_classes + list(set(all_toks) - set(override_classes))
-                # cfg.defrost()
-                # for key in cfg.MODEL.keys():
-                #     if hasattr(cfg.MODEL[key], 'get') and 'NUM_CLASSES' in cfg.MODEL[key]:
-                #         cfg.MODEL[key].num_classes = len(meta.override_classes)
-                # cfg.freeze()
-                # logging.info(f"Overriding class names with all dataset classes: {meta.override_classes}")
+                logging.info(f"Overriding class names for {dataset_name}")
             else:
                 raise ValueError(f"Dataset {dataset_name} not found in MetadataCatalog")
 
